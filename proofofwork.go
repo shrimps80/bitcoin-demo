@@ -7,16 +7,19 @@ import (
 	"math/big"
 )
 
+const targetBits = 4 //4=1个0
+
 type ProofOfWork struct {
 	block  *Block
 	target *big.Int
 }
 
 func NewProofOfWork(block *Block) *ProofOfWork {
-	targetStr := "0001000000000000000000000000000000000000000000000000000000000000"
-	tmpBigInt := new(big.Int)
-	tmpBigInt.SetString(targetStr, 16)
-
+	// targetStr := "0001000000000000000000000000000000000000000000000000000000000000"
+	// tmpBigInt := new(big.Int)
+	// tmpBigInt.SetString(targetStr, 16)
+	tmpBigInt := big.NewInt(1)
+	tmpBigInt.Lsh(tmpBigInt, 256-targetBits)
 	return &ProofOfWork{
 		block:  block,
 		target: tmpBigInt,
@@ -24,22 +27,21 @@ func NewProofOfWork(block *Block) *ProofOfWork {
 }
 
 func (pow *ProofOfWork) Run() ([]byte, uint64) {
+	var hashInt big.Int
 	var nonce uint64
 	var hash [32]byte
-	fmt.Println("start...")
 
 	for {
 		fmt.Printf("%x\r", hash[:])
 		data := pow.PrepareData(nonce)
 		hash = sha256.Sum256(data)
 
-		tmpInt := new(big.Int)
-		tmpInt.SetBytes(hash[:])
+		hashInt.SetBytes(hash[:])
 
 		//   -1 if x <  y
 		//    0 if x == y
 		//   +1 if x >  y
-		if tmpInt.Cmp(pow.target) == -1 {
+		if hashInt.Cmp(pow.target) == -1 {
 			fmt.Printf("success, hash :%x, nonce :%d\n", hash[:], nonce)
 			break
 		} else {
@@ -65,4 +67,14 @@ func (pow *ProofOfWork) PrepareData(nonce uint64) []byte {
 	}
 	data := bytes.Join(tmp, []byte{})
 	return data
+}
+
+func (pow *ProofOfWork) IsValid() bool {
+	var hashInt big.Int
+
+	data := pow.PrepareData(pow.block.Nonce)
+	hash := sha256.Sum256(data)
+	hashInt.SetBytes(hash[:])
+
+	return hashInt.Cmp(pow.target) == -1
 }
